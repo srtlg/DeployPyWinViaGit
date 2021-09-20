@@ -79,6 +79,7 @@ def create_desktop_entry(config: ConfigParser, section: str, development=False, 
     print('creating', shortcut_path, '...')
     shortcut_obj = shell.CreateShortcut(str(shortcut_path))
     shortcut_obj.IconLocation = str(icon_path)
+    python_exec = get_python_executable(development or verbose)
     if development or verbose:
         shortcut_obj.TargetPath = os.getenv('ComSpec')
         if verbose:
@@ -87,14 +88,14 @@ def create_desktop_entry(config: ConfigParser, section: str, development=False, 
             args_tail = ''
         if script:
             assert (dst / script).exists()
-            args = '/K {:} {:}'.format(get_python_executable(development), Path(script))
+            args = '/K {:} {:}'.format(python_exec, Path(script))
         elif module:
-            args = '/K {:} -m{:}'.format(get_python_executable(development), module)
+            args = '/K {:} -m{:}'.format(python_exec, module)
         else:
             raise AssertionError()
         shortcut_obj.Arguments = args + args_tail
     else:
-        shortcut_obj.TargetPath = get_python_executable(development)
+        shortcut_obj.TargetPath = python_exec
         if script:
             assert (dst / script).exists()
             shortcut_obj.Arguments = str(Path(script))
