@@ -128,7 +128,7 @@ def main():
         raise RuntimeError('expecting an existing ini-file at `%s`' % args.ini_file)
     config.read(args.ini_file)
     clone_repository(config)
-    create_desktop_entries(config, args.development, args.verbose)
+    create_desktop_entries(config, development=args.development, verbose=args.verbose)
 
 
 if __name__ == '__main__':
