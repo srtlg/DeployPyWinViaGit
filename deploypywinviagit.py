@@ -1,6 +1,7 @@
 import os
 import re
 import sys
+import stat
 import shutil
 import argparse
 import subprocess
@@ -21,7 +22,13 @@ def replace_environment_variables(path: str):
     if env is None:
         raise RuntimeError('Requested environment variable %s does not exist' % sym)
     return path.replace(match.group(0), env)
-    
+
+
+# https://stackoverflow.com/questions/1889597/deleting-read-only-directory-in-python/1889686#1889686
+def remove_readonly(func, path, excinfo):
+    os.chmod(path, stat.S_IWRITE)
+    func(path)
+
 
 def clone_repository(config: ConfigParser):
     if 'Repository' not in config.sections():
@@ -33,7 +40,7 @@ def clone_repository(config: ConfigParser):
     src = config.get('Repository', 'src')
     dst = Path(replace_environment_variables(config.get('Repository', 'dst')))
     if dst.exists():
-        shutil.rmtree(dst)
+        shutil.rmtree(dst, onerror=remove_readonly)
     subprocess.check_call(['git', 'clone', '--depth=1', src, dst])
 
 
