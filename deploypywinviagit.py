@@ -57,7 +57,7 @@ def get_python_executable(development):
         return sys.executable
 
 
-def create_desktop_entry(config: ConfigParser, section: str, development: bool):
+def create_desktop_entry(config: ConfigParser, section: str, development=False, verbose=False):
     dst = Path(replace_environment_variables(config.get('Repository', 'dst')))
     assert dst.exists()
     if 'name' not in config[section]:
@@ -79,15 +79,20 @@ def create_desktop_entry(config: ConfigParser, section: str, development: bool):
     print('creating', shortcut_path, '...')
     shortcut_obj = shell.CreateShortcut(str(shortcut_path))
     shortcut_obj.IconLocation = str(icon_path)
-    if development:
+    if development or verbose:
         shortcut_obj.TargetPath = os.getenv('ComSpec')
+        if verbose:
+            args_tail = ' --debug'
+        else:
+            args_tail = ''
         if script:
             assert (dst / script).exists()
-            shortcut_obj.Arguments = '/K {:} {:}'.format(get_python_executable(development), Path(script))
+            args = '/K {:} {:}'.format(get_python_executable(development), Path(script))
         elif module:
-            shortcut_obj.Arguments = '/K {:} -m{:}'.format(get_python_executable(development), module)
+            args = '/K {:} -m{:}'.format(get_python_executable(development), module)
         else:
             raise AssertionError()
+        shortcut_obj.Arguments = args + args_tail
     else:
         shortcut_obj.TargetPath = get_python_executable(development)
         if script:
@@ -101,9 +106,9 @@ def create_desktop_entry(config: ConfigParser, section: str, development: bool):
     shortcut_obj.Save()
     
 
-def create_desktop_entries(config: ConfigParser, development=False):
+def create_desktop_entries(config: ConfigParser, **kwargs):
     for section in [i for i in config.sections() if i.startswith('DesktopEntry')]:
-        create_desktop_entry(config, section, development)
+        create_desktop_entry(config, section, **kwargs)
 
 
 def parse_args():
@@ -111,6 +116,8 @@ def parse_args():
     p.add_argument('ini_file')
     p.add_argument('-d', '--development', action='store_true', 
                    help='create shortcuts that open a shell that stays open')
+    p.add_argument('-v', '--verbose', action='store_true',
+                   help='add --debug to the shortcut, implies --development')
     return p.parse_args()
 
 
@@ -121,7 +128,7 @@ def main():
         raise RuntimeError('expecting an existing ini-file at `%s`' % args.ini_file)
     config.read(args.ini_file)
     clone_repository(config)
-    create_desktop_entries(config, args.development)
+    create_desktop_entries(config, args.development, args.verbose)
 
 
 if __name__ == '__main__':
