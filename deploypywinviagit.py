@@ -158,8 +158,8 @@ def add_identity(identity_path):
             break
         except subprocess.CalledProcessError:
             print('changing permissions for', identity_path)
-    subprocess.check_call(['icacls', identity_path, '/inheritance:r'])
-    subprocess.check_call(['icacls', identity_path, '/grant:r', '"{:}:"(R)"'.format(os.os.getenv('USERNAME'))])
+        subprocess.check_call(['icacls', identity_path, '/inheritance:r'])
+        subprocess.check_call(['icacls', identity_path, '/grant:r', '"{:}:"(R)"'.format(os.getenv('USERNAME'))])
 
 
 def check_ssh_identity(config):
