@@ -141,9 +141,12 @@ def create_desktop_entry(config: ConfigParser, section: str, development=False, 
 def identity_already_added(config: ConfigParser):
     src = config.get('Repository', 'src')
     user, _ = src.split('@')
-    for line in subprocess.check_output(['ssh-add', '-l']).decode('ascii').splitlines():
-        if line.find(' {:}@'.format(user)):
-            return True
+    try:
+        for line in subprocess.check_output(['ssh-add', '-l']).decode('ascii').splitlines():
+            if line.find(' {:}@'.format(user)):
+                return True
+    except subprocess.CalledProcessError:
+        pass
     return False
 
 
