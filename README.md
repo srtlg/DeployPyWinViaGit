@@ -31,5 +31,10 @@ icon=icons/other-application.ico
 [Repository]
 src=git-helper@development-machine.local:src/application
 dst=$PUBLIC/application
+version=app/__init__.py
 ```
 
+## SSH identity files
+
+If a file `ssh-identity` exists besides `deploywinviagit.py` this file is
+offered to `ssh-agent`.

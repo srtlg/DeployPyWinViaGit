@@ -1,4 +1,5 @@
 import os
+import os.path as osp
 import re
 import sys
 import stat
@@ -41,7 +42,37 @@ def clone_repository(config: ConfigParser):
     dst = Path(replace_environment_variables(config.get('Repository', 'dst')))
     if dst.exists():
         shutil.rmtree(dst, onerror=remove_readonly)
-    subprocess.check_call(['git', 'clone', '--depth=1', src, dst])
+    system_ssh = osp.join(os.getenv('SystemRoot'), 'System32', 'OpenSSH', 'ssh.exe')
+    assert osp.exists(system_ssh)
+    subprocess.check_call(['git', 'clone', '--depth=1', src, dst], env=dict(os.environ,
+        GIT_SSH=system_ssh))
+
+
+def update_version_str(config: ConfigParser):
+    if 'Repository' not in config.sections():
+        raise RuntimeError('section `Repository` is required')
+    if 'src' not in config['Repository']:
+        raise RuntimeError('key `src` required in section Repository')
+    if 'version' not in config['Repository']:
+        return
+    host, directory = config.get('Repository', 'src').split(':')
+    dst = Path(replace_environment_variables(config.get('Repository', 'dst'))) / Path(config.get('Repository', 'version'))
+    if not osp.exists(dst):
+        raise RuntimeError('requested to write version to %s, but it doesnt exist' % dst)
+    version = subprocess.check_output(['ssh', host, 'git', '-C', directory, 'describe', '--tags']).decode('ascii').strip()
+    with open(dst, 'r', encoding='utf-8') as fin:
+        contents = fin.read()
+    version_written = False
+    with open(dst, 'w', encoding='utf-8') as fout:
+        for line in contents.splitlines():
+            if line.startswith('__version__'):
+                print('__version__ =', '"{:}"'.format(version), file=fout)
+                version_written = True
+            else:
+                print(line.rstrip(), file=fout)
+    if not version_written:
+        print('WARNING version requested, but none found in', dst)
+    print('version =', version)
 
 
 def get_python_executable(development):
@@ -105,6 +136,35 @@ def create_desktop_entry(config: ConfigParser, section: str, development=False, 
             raise AssertionError()
     shortcut_obj.WorkingDirectory = str(dst)
     shortcut_obj.Save()
+
+
+def identity_already_added(config: ConfigParser):
+    src = config.get('Repository', 'src')
+    user, _ = src.split('@')
+    for line in subprocess.check_output(['ssh-add', '-l']).decode('ascii').splitlines():
+        if line.find(' {:}@'.format(user)):
+            return True
+    return False
+
+
+def add_identity(identity_path):
+    for _ in range(2):
+        try:
+            subprocess.check_call(['ssh-add', identity_path])
+            print('ssh identity added to agent')
+            break
+        except subprocess.CalledProcessError:
+            print('changing permissions for', identity_path)
+    subprocess.check_call(['icacls', identity_path, '/inheritance:r'])
+    subprocess.check_call(['icacls', identity_path, '/grant:r', '"{:}:"(R)"'.format(os.os.getenv('USERNAME'))])
+
+
+def check_ssh_identity(config):
+    identity_path = osp.abspath(osp.join(osp.dirname(__file__), 'ssh-identity'))
+    if osp.exists(identity_path):
+        print('using', identity_path)
+        if not identity_already_added(config):
+            add_identity(identity_path)
     
 
 def create_desktop_entries(config: ConfigParser, **kwargs):
@@ -128,7 +188,9 @@ def main():
     if not Path(args.ini_file).exists():
         raise RuntimeError('expecting an existing ini-file at `%s`' % args.ini_file)
     config.read(args.ini_file)
+    check_ssh_identity(config)
     clone_repository(config)
+    update_version_str(config)
     create_desktop_entries(config, development=args.development, verbose=args.verbose)
 
 
