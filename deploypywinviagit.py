@@ -142,7 +142,15 @@ def identity_already_added(config: ConfigParser):
     src = config.get('Repository', 'src')
     user, _ = src.split('@')
     try:
-        for line in subprocess.check_output(['ssh-add', '-l']).decode('ascii').splitlines():
+        for line in subprocess.run(['ssh-add', '-l'], stderr=subprocess.PIPE).stderr.decode('ascii').splitlines():
+            if line.startswith('Error connecting to agent'):
+                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                print('you have to start ssh-agent, e.g. in PowerShell:')
+                print(" Set-Service -Name ssh-agent -StartupType 'Automatic'")
+                print(" Start-Service ssh-agent")
+                print("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!")
+                raise SystemExit(2)
+        for line in subprocess.check_output(['ssh-add', '-l'], stderr=subprocess.DEVNULL).decode('ascii').splitlines():
             if line.find(' {:}@'.format(user)):
                 return True
     except subprocess.CalledProcessError:
@@ -162,9 +170,24 @@ def add_identity(identity_path):
         subprocess.check_call(['icacls', identity_path, '/grant:r', '{:}:(R)'.format(os.getenv('USERNAME'))])
 
 
+def openssh_available():
+    try:
+        subprocess.check_call(['where', 'ssh-add'], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+        return True
+    except subprocess.CalledProcessError:
+        return False
+
+
 def check_ssh_identity(config):
     identity_path = osp.abspath(osp.join(osp.dirname(__file__), 'ssh-identity'))
     if osp.exists(identity_path):
+        if not openssh_available():
+            print('install OpenSSH with the following PowerShell command:')
+            print("  Get-WindowsCapability -Online | Where-Object Name -like 'OpenSSH*'")
+            print("  Add-WindowsCapability -Online -Name OpenSSH.Client~~~~0.0.1.0")
+            print("  Set-Service -Name ssh-agent -StartupType 'Automatic'")
+            print('and restart aftwerards')
+            raise SystemExit(1)
         print('using', identity_path)
         if not identity_already_added(config):
             add_identity(identity_path)
