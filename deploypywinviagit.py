@@ -8,6 +8,7 @@ import argparse
 import subprocess
 from pathlib import Path
 from configparser import ConfigParser
+from docutils.core import publish_file
 from win32com.client import Dispatch
 
 var = re.compile(r'\$[A-Za-z][A-Za-z0-0]*')
@@ -87,6 +88,45 @@ def get_python_executable(development):
     else:
         return sys.executable
 
+
+def rst2html(source: Path):
+    destination = source.parent / '{}.html'.format(source.stem)
+    with open(source, 'r', encoding='utf8') as src:
+        publish_file(source=src, destination_path=str(destination), writer_name='html')
+
+
+def create_documentation_shortcut(name, path: Path):
+    if not path.exists():
+        raise RuntimeError('expecting documentation entry existing at %s' % path)
+    desktop = Path(shell.SpecialFolders('Desktop'))
+    assert desktop.exists()
+    shortcut_path = desktop / '{:}.lnk'.format(name)
+    print('creating', shortcut_path, '...')
+    shortcut_obj = shell.CreateShortcut(str(shortcut_path))
+    shortcut_obj.TargetPath = str(path)
+    shortcut_obj.Save()
+
+
+
+def create_documentation(config: ConfigParser):
+    if 'Documentation' not in config.sections():
+        print('No documentation requested')
+        return
+    if 'glob' not in config['Documentation']:
+        raise RuntimeError('no files to generate documentation from specified via `glob=`')
+    dst = Path(replace_environment_variables(config.get('Repository', 'dst')))
+    assert dst.exists()
+    source = None
+    for source in dst.glob(config['Documentation']['glob']):
+        print('rst2html', source)
+        rst2html(source)
+    if source is None:
+        raise RuntimeError('no documentation source found in %s' % config['Documentation']['glob'])
+    entry = config['Documentation'].get('desktop-entry')
+    if entry:
+        print('Requesting desktop entry to', source.parent / 'index.html')
+        create_documentation_shortcut(entry, source.parent / 'index.html')
+     
 
 def create_desktop_entry(config: ConfigParser, section: str, development=False, verbose=False):
     dst = Path(replace_environment_variables(config.get('Repository', 'dst')))
@@ -217,7 +257,8 @@ def main():
     check_ssh_identity(config)
     clone_repository(config)
     update_version_str(config)
-    create_desktop_entries(config, development=args.development, verbose=args.verbose)
+    # create_desktop_entries(config, development=args.development, verbose=args.verbose)
+    create_documentation(config)
 
 
 if __name__ == '__main__':

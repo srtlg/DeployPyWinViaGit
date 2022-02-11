@@ -28,6 +28,10 @@ module=bin.other_application
 name=other application
 icon=icons/other-application.ico
 
+[Documentation]
+glob=app/documentation/*.rst
+desktop-entry=Application Help
+
 [Repository]
 src=git-helper@development-machine.local:src/application
 dst=$PUBLIC/application
