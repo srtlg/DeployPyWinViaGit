@@ -107,7 +107,6 @@ def create_documentation_shortcut(name, path: Path):
     shortcut_obj.Save()
 
 
-
 def create_documentation(config: ConfigParser):
     if 'Documentation' not in config.sections():
         print('No documentation requested')
@@ -253,7 +252,12 @@ def main():
     config = ConfigParser()
     if not Path(args.ini_file).exists():
         raise RuntimeError('expecting an existing ini-file at `%s`' % args.ini_file)
-    config.read(args.ini_file)
+    for encoding in ('utf-8', None):
+        try:
+            config.read(args.ini_file, encoding=encoding)
+            break
+        except UnicodeDecodeError:
+            pass
     check_ssh_identity(config)
     clone_repository(config)
     update_version_str(config)
