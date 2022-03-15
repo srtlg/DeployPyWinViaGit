@@ -261,7 +261,7 @@ def main():
     check_ssh_identity(config)
     clone_repository(config)
     update_version_str(config)
-    # create_desktop_entries(config, development=args.development, verbose=args.verbose)
+    create_desktop_entries(config, development=args.development, verbose=args.verbose)
     create_documentation(config)
 
 
