@@ -23,7 +23,7 @@ def replace_environment_variables(path: str):
     env = os.getenv(sym, None)
     if env is None:
         raise RuntimeError('Requested environment variable %s does not exist' % sym)
-    return path.replace(match.group(0), env)
+    return replace_environment_variables(path.replace(match.group(0), env))
 
 
 # https://stackoverflow.com/questions/1889597/deleting-read-only-directory-in-python/1889686#1889686
